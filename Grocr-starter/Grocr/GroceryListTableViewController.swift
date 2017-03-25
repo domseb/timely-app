@@ -23,11 +23,11 @@
 import UIKit
 
 class GroceryListTableViewController: UITableViewController {
-  
+
   // MARK: Constants
   let listToUsers = "ListToUsers"
   
-  // MARK: Properties
+  // MARK: Properties 
   var items: [GroceryItem] = []
   var user: User!
   var userCountBarButtonItem: UIBarButtonItem!
@@ -109,12 +109,12 @@ class GroceryListTableViewController: UITableViewController {
     
     let saveAction = UIAlertAction(title: "Save",
                                    style: .default) { action in
-                                    let textField = alert.textFields![0]
-                                    let groceryItem = GroceryItem(name: textField.text!,
-                                                                  addedByUser: self.user.email,
-                                                                  completed: false)
-                                    self.items.append(groceryItem)
-                                    self.tableView.reloadData()
+      let textField = alert.textFields![0] 
+      let groceryItem = GroceryItem(name: textField.text!,
+                                    addedByUser: self.user.email,
+                                    completed: false)
+      self.items.append(groceryItem)
+      self.tableView.reloadData()
     }
     
     let cancelAction = UIAlertAction(title: "Cancel",
