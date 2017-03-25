@@ -29,6 +29,8 @@ class GroceryListTableViewController: UITableViewController {
   
   // MARK: Properties 
   var items: [GroceryItem] = []
+  let ref = FIRDatabase.database().reference(withPath: "grocery-items")
+  let usersRef = FIRDatabase.database().reference(withPath: "online")
   var user: User!
   var userCountBarButtonItem: UIBarButtonItem!
   
@@ -46,7 +48,33 @@ class GroceryListTableViewController: UITableViewController {
     userCountBarButtonItem.tintColor = UIColor.white
     navigationItem.leftBarButtonItem = userCountBarButtonItem
     
-    user = User(uid: "FakeId", email: "hungry@person.food")
+    usersRef.observe(.value, with: { snapshot in
+      if snapshot.exists() {
+        self.userCountBarButtonItem?.title = snapshot.childrenCount.description
+      } else {
+        self.userCountBarButtonItem?.title = "0"
+      }
+    })
+    
+    ref.queryOrdered(byChild: "completed").observe(.value, with: { snapshot in
+      var newItems: [GroceryItem] = []
+      
+      for item in snapshot.children {
+        let groceryItem = GroceryItem(snapshot: item as! FIRDataSnapshot)
+        newItems.append(groceryItem)
+      }
+      
+      self.items = newItems
+      self.tableView.reloadData()
+    })
+    
+    FIRAuth.auth()!.addStateDidChangeListener { auth, user in
+      guard let user = user else { return }
+      self.user = User(authData: user)
+      let currentUserRef = self.usersRef.child(self.user.uid)
+      currentUserRef.setValue(self.user.email)
+      currentUserRef.onDisconnectRemoveValue()
+    }
   }
   
   // MARK: UITableView Delegate methods
@@ -73,19 +101,19 @@ class GroceryListTableViewController: UITableViewController {
   
   override func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCellEditingStyle, forRowAt indexPath: IndexPath) {
     if editingStyle == .delete {
-      items.remove(at: indexPath.row)
-      tableView.reloadData()
+      let groceryItem = items[indexPath.row]
+      groceryItem.ref?.removeValue()
     }
   }
   
   override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
     guard let cell = tableView.cellForRow(at: indexPath) else { return }
-    var groceryItem = items[indexPath.row]
+    let groceryItem = items[indexPath.row]
     let toggledCompletion = !groceryItem.completed
-    
     toggleCellCheckbox(cell, isCompleted: toggledCompletion)
-    groceryItem.completed = toggledCompletion
-    tableView.reloadData()
+    groceryItem.ref?.updateChildValues([
+      "completed": toggledCompletion
+    ])
   }
   
   func toggleCellCheckbox(_ cell: UITableViewCell, isCompleted: Bool) {
@@ -108,13 +136,20 @@ class GroceryListTableViewController: UITableViewController {
                                   preferredStyle: .alert)
     
     let saveAction = UIAlertAction(title: "Save",
-                                   style: .default) { action in
-      let textField = alert.textFields![0] 
-      let groceryItem = GroceryItem(name: textField.text!,
-                                    addedByUser: self.user.email,
-                                    completed: false)
-      self.items.append(groceryItem)
-      self.tableView.reloadData()
+                                   style: .default) { _ in
+                                    // 1
+                                    guard let textField = alert.textFields?.first,
+                                      let text = textField.text else { return }
+
+                                    // 2
+                                    let groceryItem = GroceryItem(name: text,
+                                                                  addedByUser: self.user.email,
+                                                                  completed: false)
+                                    // 3
+                                    let groceryItemRef = self.ref.child(text.lowercased())
+
+                                    // 4
+                                    groceryItemRef.setValue(groceryItem.toAnyObject())
     }
     
     let cancelAction = UIAlertAction(title: "Cancel",

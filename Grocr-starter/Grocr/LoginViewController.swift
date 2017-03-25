@@ -23,7 +23,7 @@
 import UIKit
 
 class LoginViewController: UIViewController {
-  
+
   // MARK: Constants
   let loginToList = "LoginToList"
   
@@ -31,19 +31,39 @@ class LoginViewController: UIViewController {
   @IBOutlet weak var textFieldLoginEmail: UITextField!
   @IBOutlet weak var textFieldLoginPassword: UITextField!
   
-  // MARK: Actions
-  @IBAction func loginDidTouch(_ sender: AnyObject) {
-    performSegue(withIdentifier: loginToList, sender: nil)
+  override func viewDidLoad() {
+    super.viewDidLoad()
+    
+    FIRAuth.auth()!.addStateDidChangeListener() { auth, user in
+      if user != nil {
+        self.performSegue(withIdentifier: self.loginToList, sender: nil)
+      }
+    }
   }
   
+  // MARK: Actions
+  @IBAction func loginDidTouch(_ sender: AnyObject) {
+    FIRAuth.auth()!.signIn(withEmail: textFieldLoginEmail.text!,
+                           password: textFieldLoginPassword.text!)
+  }
+
   @IBAction func signUpDidTouch(_ sender: AnyObject) {
     let alert = UIAlertController(title: "Register",
                                   message: "Register",
                                   preferredStyle: .alert)
     
     let saveAction = UIAlertAction(title: "Save",
-                                   style: .default) { action in
-                                    
+      style: .default) { action in
+        let emailField = alert.textFields![0] 
+        let passwordField = alert.textFields![1] 
+      
+        FIRAuth.auth()!.createUser(withEmail: emailField.text!,
+                                   password: passwordField.text!) { user, error in
+          if error == nil {
+            FIRAuth.auth()!.signIn(withEmail: self.textFieldLoginEmail.text!,
+                                   password: self.textFieldLoginPassword.text!)
+          }
+        }
     }
     
     let cancelAction = UIAlertAction(title: "Cancel",
@@ -63,7 +83,7 @@ class LoginViewController: UIViewController {
     
     present(alert, animated: true, completion: nil)
   }
-  
+
 }
 
 extension LoginViewController: UITextFieldDelegate {
